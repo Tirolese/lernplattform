@@ -194,13 +194,20 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CONFIG & INITIALIZATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_FALLBACK_API_KEY", authDomain: "", projectId: "" };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const apiKey = ""; // Canvas provides this
+        const firebaseConfig = {
+            apiKey: "AIzaSyCNUBwFJAeRKg5eO8jOytvyXO_cKylv1rc",
+            authDomain: "lernplattform-77775.firebaseapp.com",
+            projectId: "lernplattform-77775",
+            storageBucket: "lernplattform-77775.appspot.com",
+            messagingSenderId: "749521719732",
+            appId: "1:749521719732:web:822005b0d78bdf0ff8e2e1",
+            measurementId: "G-JTH9KW7MZ1"
+        };
+        const apiKey = ""; // Canvas provides this for the AI calls
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -239,8 +246,9 @@
                 userId = user.uid;
                 authStateText.textContent = `Angemeldet (ID: ${userId.substring(0, 8)}...)`;
                 authStateText.classList.add('text-green-400');
-                myQuestionsCollection = collection(db, `artifacts/${appId}/users/${userId}/questions`);
-                publicQuestionsCollection = collection(db, `artifacts/${appId}/public/data/questions`);
+                // Vereinfachte Pfade für eine eigenständige App
+                myQuestionsCollection = collection(db, `users/${userId}/questions`);
+                publicQuestionsCollection = collection(db, `public/questions`);
                 setupSnapshotListeners();
             } else {
                  authStateText.textContent = 'Nicht angemeldet. Versuche anonyme Anmeldung...';
@@ -250,14 +258,16 @@
 
         async function initializeAuth() {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // In einer eigenständigen App wird immer die anonyme Anmeldung verwendet.
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Authentication Error:", error);
-                document.getElementById('auth-state-text').textContent = 'Anmeldung fehlgeschlagen!';
+                let errorMessage = 'Anmeldung fehlgeschlagen!';
+                if (error.code === 'auth/configuration-not-found') {
+                    errorMessage = 'Fehler: Anonyme Anmeldung nicht in Firebase aktiviert.';
+                    alert('Anmeldung fehlgeschlagen! Bitte stelle sicher, dass die anonyme Anmeldung in den Firebase-Projekteinstellungen (Authentication -> Sign-in method) aktiviert ist.');
+                }
+                document.getElementById('auth-state-text').textContent = errorMessage;
                 document.getElementById('auth-state-text').classList.add('text-red-500');
             }
         }
