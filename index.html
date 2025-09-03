@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lernplattform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white antialiased">
+
+    <div id="app" class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-300">
+                Lernplattform
+            </h1>
+            <p class="text-gray-400 mt-2">Fragen verwalten und im Lernmodus üben.</p>
+        </header>
+
+        <div id="auth-status" class="text-center mb-6">
+            <p class="text-sm text-gray-500">Status: <span id="auth-state-text">Initialisiere...</span></p>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="mb-8">
+            <div class="border-b border-gray-700">
+                <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                    <button id="tab-manage" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg border-blue-400 text-blue-300">
+                        Meine Fragen
+                    </button>
+                    <button id="tab-shared" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500">
+                        Freigegebene Fragen
+                    </button>
+                    <button id="tab-learn" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500">
+                        Lernmodus
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- View: Fragen verwalten -->
+        <main id="view-manage">
+            <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-semibold mb-6">Neue Frage hinzufügen / Bearbeiten</h2>
+                <form id="question-form" class="space-y-4">
+                    <input type="hidden" id="edit-id">
+                    <div>
+                        <label for="question-text" class="block text-sm font-medium text-gray-300 mb-1">Frage / Titel</label>
+                        <textarea id="question-text" rows="2" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition" placeholder="Wie lautet die Frage oder der Titel?"></textarea>
+                    </div>
+                    
+                    <div id="gap-text-context-wrapper" class="hidden">
+                        <label for="context-text" class="block text-sm font-medium text-gray-300 mb-1">Text mit Lücken</label>
+                        <textarea id="context-text" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition" placeholder="Füge hier den Text ein und verwende [LÜCKE] als Platzhalter."></textarea>
+                    </div>
+
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="question-type" class="block text-sm font-medium text-gray-300 mb-1">Fragetyp</label>
+                            <select id="question-type" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                                <option value="free-text">Freitext</option>
+                                <option value="gap-text">Lückentext</option>
+                                <option value="enumeration">Aufzählung</option>
+                                <option value="ordered-enumeration">Reihenfolge</option>
+                            </select>
+                        </div>
+                         <div>
+                            <label for="question-catalog" class="block text-sm font-medium text-gray-300 mb-1">Fragenkatalog</label>
+                            <input type="text" id="question-catalog" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition" placeholder="z.B. Allgemeinwissen">
+                        </div>
+                    </div>
+                     <div>
+                        <label for="correct-answer" class="block text-sm font-medium text-gray-300 mb-1">Richtige Antwort(en)</label>
+                        <input type="text" id="correct-answer" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition" placeholder="Antworten mit Semikolon (;) trennen.">
+                    </div>
+                    <div class="flex justify-end pt-2 space-x-3">
+                         <button type="button" id="cancel-edit-btn" class="hidden px-5 py-2.5 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold transition">Abbrechen</button>
+                        <button type="submit" id="save-btn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold transition">Frage speichern</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="mt-10">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold">Gespeicherte Fragen</h2>
+                    <select id="catalog-filter" class="bg-gray-700 border border-gray-600 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                        <option value="all">Alle Kataloge</option>
+                    </select>
+                </div>
+                <div id="question-list" class="space-y-4">
+                    <p class="text-gray-500">Noch keine Fragen hinzugefügt.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- View: Freigegebene Fragen -->
+        <main id="view-shared" class="hidden">
+             <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4">Von anderen geteilte Fragen</h2>
+                <p class="text-gray-400 mb-6">Hier findest du Fragen, die von anderen Nutzern zur Verfügung gestellt wurden. Du kannst sie zu deiner eigenen Lernliste hinzufügen.</p>
+                <div id="shared-question-list" class="space-y-4">
+                    <p class="text-gray-500">Noch keine Fragen freigegeben.</p>
+                </div>
+             </div>
+        </main>
+
+        <!-- View: Lernmodus -->
+        <main id="view-learn" class="hidden">
+             <div id="quiz-starter" class="text-center">
+                <div class="mb-6">
+                    <label for="quiz-catalog-select" class="block text-sm font-medium text-gray-400 mb-2">Wähle einen Katalog zum Lernen:</label>
+                    <select id="quiz-catalog-select" class="bg-gray-700 border border-gray-600 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none transition w-full max-w-xs mx-auto">
+                        <option value="all">Alle Fragen</option>
+                    </select>
+                </div>
+                 <p id="quiz-starter-info" class="text-lg text-gray-400 mb-6">Bereit zum Lernen? Klicke, um zu starten!</p>
+                 <button id="start-quiz-btn" class="bg-teal-500 hover:bg-teal-400 text-white font-bold py-3 px-8 rounded-lg text-xl transition transform hover:scale-105 shadow-lg">
+                    Quiz starten
+                 </button>
+             </div>
+
+             <div id="quiz-container" class="hidden bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg">
+                <div id="quiz-progress" class="text-right text-gray-400 mb-4">Frage <span id="current-q-num">1</span> von <span id="total-q-num">0</span></div>
+                <div id="quiz-question-card">
+                    <p id="quiz-question-text" class="text-xl mb-6 font-semibold"></p>
+                    <div id="quiz-answer-area" class="space-y-3">
+                        <!-- Answer input will be generated here -->
+                    </div>
+                </div>
+                
+                <div id="quiz-feedback" class="mt-6 p-4 rounded-lg hidden"></div>
+
+                <div id="ai-loader" class="hidden my-6 flex justify-center items-center flex-col">
+                    <div class="loader"></div>
+                    <p class="mt-2 text-gray-400">KI prüft deine Antwort...</p>
+                </div>
+
+                <div class="mt-6 flex justify-between items-center">
+                    <button id="check-answer-btn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold transition">Antwort prüfen</button>
+                    <button id="next-question-btn" class="hidden px-5 py-2.5 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold transition">Nächste Frage</button>
+                </div>
+             </div>
+
+             <div id="quiz-end-screen" class="hidden text-center bg-gray-800 p-8 rounded-2xl shadow-lg">
+                <h2 class="text-3xl font-bold text-teal-300">Quiz beendet!</h2>
+                <p class="text-xl mt-4">Dein Ergebnis: <span id="quiz-score" class="font-bold">0</span> von <span id="quiz-total" class="font-bold">0</span> richtig.</p>
+                <button id="restart-quiz-btn" class="mt-8 bg-teal-500 hover:bg-teal-400 text-white font-bold py-3 px-8 rounded-lg text-xl transition transform hover:scale-105">
+                    Nochmal starten
+                </button>
+             </div>
+        </main>
+    </div>
+    
+    <!-- Modal for Deletion Confirmation -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content bg-gray-800 rounded-lg shadow-xl m-auto p-6 max-w-sm" style="margin-top: 20vh;">
+            <h3 class="text-xl font-bold mb-4">Frage löschen?</h3>
+            <p class="text-gray-300 mb-6">Bist du sicher, dass du diese Frage endgültig löschen möchtest?</p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold">Abbrechen</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-semibold">Löschen</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIG & INITIALIZATION ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_FALLBACK_API_KEY", authDomain: "", projectId: "" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const apiKey = ""; // Canvas provides this
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        let userId = null;
+        let questions = [];
+        let sharedQuestions = [];
+        let myQuestionsCollection;
+        let publicQuestionsCollection;
+
+
+        // --- UI ELEMENTS ---
+        const questionTypeSelect = document.getElementById('question-type');
+        const gapTextContextWrapper = document.getElementById('gap-text-context-wrapper');
+
+        const tabManage = document.getElementById('tab-manage');
+        const tabShared = document.getElementById('tab-shared');
+        const tabLearn = document.getElementById('tab-learn');
+        const viewManage = document.getElementById('view-manage');
+        const viewShared = document.getElementById('view-shared');
+        const viewLearn = document.getElementById('view-learn');
+        const questionForm = document.getElementById('question-form');
+        const questionList = document.getElementById('question-list');
+        const sharedQuestionList = document.getElementById('shared-question-list');
+        const saveBtn = document.getElementById('save-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const deleteModal = document.getElementById('delete-modal');
+        let questionToDeleteId = null;
+
+
+        // --- AUTHENTICATION ---
+        onAuthStateChanged(auth, async (user) => {
+            const authStateText = document.getElementById('auth-state-text');
+            if (user) {
+                userId = user.uid;
+                authStateText.textContent = `Angemeldet (ID: ${userId.substring(0, 8)}...)`;
+                authStateText.classList.add('text-green-400');
+                myQuestionsCollection = collection(db, `artifacts/${appId}/users/${userId}/questions`);
+                publicQuestionsCollection = collection(db, `artifacts/${appId}/public/data/questions`);
+                setupSnapshotListeners();
+            } else {
+                 authStateText.textContent = 'Nicht angemeldet. Versuche anonyme Anmeldung...';
+                 authStateText.classList.add('text-yellow-400');
+            }
+        });
+
+        async function initializeAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Authentication Error:", error);
+                document.getElementById('auth-state-text').textContent = 'Anmeldung fehlgeschlagen!';
+                document.getElementById('auth-state-text').classList.add('text-red-500');
+            }
+        }
+        
+        // --- DATA HANDLING (FIRESTORE) ---
+        function setupSnapshotListeners() {
+            onSnapshot(query(myQuestionsCollection), (snapshot) => {
+                questions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                populateCatalogs();
+                renderQuestions();
+                updateQuizStarter();
+            });
+
+            onSnapshot(query(publicQuestionsCollection), (snapshot) => {
+                sharedQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderSharedQuestions();
+            });
+        }
+        
+        async function saveQuestion(event) {
+            event.preventDefault();
+            const editId = document.getElementById('edit-id').value;
+            const questionText = document.getElementById('question-text').value.trim();
+            const questionType = document.getElementById('question-type').value;
+            const correctAnswer = document.getElementById('correct-answer').value.trim();
+            const contextText = document.getElementById('context-text').value.trim();
+            const catalog = document.getElementById('question-catalog').value.trim();
+
+            if (!questionText || !correctAnswer || (questionType === 'gap-text' && !contextText) || !catalog) {
+                alert("Bitte fülle alle relevanten Felder aus, inklusive des Fragenkatalogs.");
+                return;
+            }
+
+            const questionData = { questionText, questionType, correctAnswer, contextText: questionType === 'gap-text' ? contextText : '', catalog };
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Speichere...';
+
+            try {
+                if (editId) {
+                    await setDoc(doc(db, myQuestionsCollection.path, editId), questionData);
+                } else {
+                    await addDoc(myQuestionsCollection, questionData);
+                }
+                resetForm();
+            } catch (error) {
+                console.error("Error saving question: ", error);
+                alert("Fehler beim Speichern der Frage.");
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Frage speichern';
+            }
+        }
+
+        async function deleteQuestion(id) {
+            try {
+                await deleteDoc(doc(db, myQuestionsCollection.path, id));
+            } catch (error) {
+                console.error("Error deleting question: ", error);
+                alert("Fehler beim Löschen der Frage.");
+            }
+        }
+
+        async function shareQuestion(id) {
+            const questionToShare = questions.find(q => q.id === id);
+            if (!questionToShare) return;
+
+            try {
+                const sharedData = { ...questionToShare, ownerId: userId };
+                delete sharedData.id;
+                await addDoc(publicQuestionsCollection, sharedData);
+                alert("Frage wurde erfolgreich freigegeben!");
+            } catch(e) {
+                console.error("Error sharing question: ", e);
+                alert("Fehler beim Freigeben der Frage.");
+            }
+        }
+
+        async function copySharedQuestion(id) {
+            const questionToCopy = sharedQuestions.find(q => q.id === id);
+            if (!questionToCopy) return;
+
+            try {
+                const myNewQuestion = {
+                    questionText: questionToCopy.questionText,
+                    questionType: questionToCopy.questionType,
+                    correctAnswer: questionToCopy.correctAnswer,
+                    contextText: questionToCopy.contextText || '',
+                    catalog: questionToCopy.catalog || 'Importiert'
+                };
+                await addDoc(myQuestionsCollection, myNewQuestion);
+                alert("Frage wurde zu deiner Liste hinzugefügt!");
+            } catch(e) {
+                console.error("Error copying question: ", e);
+                alert("Fehler beim Kopieren der Frage.");
+            }
+        }
+
+
+        // --- RENDERING & UI LOGIC ---
+        function getQuestionTypeBadge(type) {
+            switch(type) {
+                case 'free-text': return 'Freitext';
+                case 'gap-text': return 'Lückentext';
+                case 'enumeration': return 'Aufzählung';
+                case 'ordered-enumeration': return 'Reihenfolge';
+                default: return 'Unbekannt';
+            }
+        }
+        
+        function populateCatalogs() {
+            const catalogFilter = document.getElementById('catalog-filter');
+            const quizCatalogSelect = document.getElementById('quiz-catalog-select');
+            
+            const currentFilter = catalogFilter.value;
+            const currentQuizSelect = quizCatalogSelect.value;
+
+            catalogFilter.innerHTML = '<option value="all">Alle Kataloge</option>';
+            quizCatalogSelect.innerHTML = '<option value="all">Alle Fragen</option>';
+
+            const catalogs = [...new Set(questions.map(q => q.catalog).filter(Boolean))];
+            catalogs.sort((a, b) => a.localeCompare(b));
+            
+            catalogs.forEach(catalog => {
+                catalogFilter.add(new Option(catalog, catalog));
+                quizCatalogSelect.add(new Option(catalog, catalog));
+            });
+            
+            if (Array.from(catalogFilter.options).some(opt => opt.value === currentFilter)) {
+                catalogFilter.value = currentFilter;
+            }
+             if (Array.from(quizCatalogSelect.options).some(opt => opt.value === currentQuizSelect)) {
+                quizCatalogSelect.value = currentQuizSelect;
+            }
+        }
+
+        function renderQuestions() {
+            const filterValue = document.getElementById('catalog-filter').value;
+            const filteredQuestions = filterValue === 'all' 
+                ? questions 
+                : questions.filter(q => q.catalog === filterValue);
+
+            questionList.innerHTML = '';
+            if (filteredQuestions.length === 0) {
+                questionList.innerHTML = `<p class="text-gray-500">${filterValue === 'all' ? 'Noch keine Fragen hinzugefügt.' : 'In diesem Katalog sind keine Fragen.'}</p>`;
+                return;
+            }
+            filteredQuestions.forEach(q => {
+                const div = document.createElement('div');
+                div.className = 'bg-gray-700 p-4 rounded-lg flex justify-between items-start';
+                div.innerHTML = `
+                    <div class="flex-1 mr-4">
+                        <p class="font-semibold">${q.questionText}</p>
+                        ${q.questionType === 'gap-text' ? `<p class="text-sm text-gray-400 mt-1 truncate"><em>${q.contextText}</em></p>` : ''}
+                        <p class="text-sm text-blue-300 mt-1">
+                            <strong>Antwort:</strong> ${q.correctAnswer.replace(/;/g, ', ')} 
+                        </p>
+                         <div class="mt-2 flex items-center gap-2">
+                             <span class="text-xs text-gray-300 bg-gray-600 px-2 py-0.5 rounded-full">${q.catalog || 'Kein Katalog'}</span>
+                             <span class="text-xs text-gray-400 bg-gray-600 px-2 py-0.5 rounded-full">${getQuestionTypeBadge(q.questionType)}</span>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 space-x-2">
+                        <button class="share-btn text-teal-400 hover:text-teal-300" data-id="${q.id}">Freigeben</button>
+                        <button class="edit-btn text-yellow-400 hover:text-yellow-300" data-id="${q.id}">Bearbeiten</button>
+                        <button class="delete-btn text-red-500 hover:text-red-400" data-id="${q.id}">Löschen</button>
+                    </div>
+                `;
+                questionList.appendChild(div);
+            });
+        }
+
+        function renderSharedQuestions() {
+            sharedQuestionList.innerHTML = '';
+            if (sharedQuestions.length === 0) {
+                sharedQuestionList.innerHTML = '<p class="text-gray-500">Zurzeit wurden keine Fragen freigegeben.</p>';
+                return;
+            }
+            sharedQuestions.forEach(q => {
+                if (q.ownerId === userId) return;
+
+                const div = document.createElement('div');
+                div.className = 'bg-gray-700 p-4 rounded-lg flex justify-between items-start';
+                div.innerHTML = `
+                    <div class="flex-1 mr-4">
+                        <p class="font-semibold">${q.questionText}</p>
+                         ${q.questionType === 'gap-text' ? `<p class="text-sm text-gray-400 mt-1 truncate"><em>${q.contextText}</em></p>` : ''}
+                        <p class="text-sm text-blue-300 mt-1">
+                            <strong>Antwort:</strong> ${q.correctAnswer.replace(/;/g, ', ')} 
+                        </p>
+                        <div class="mt-2 flex items-center gap-2">
+                             <span class="text-xs text-gray-300 bg-gray-600 px-2 py-0.5 rounded-full">${q.catalog || 'Kein Katalog'}</span>
+                             <span class="text-xs text-gray-400 bg-gray-600 px-2 py-0.5 rounded-full">${getQuestionTypeBadge(q.questionType)}</span>
+                        </div>
+                         <p class="text-xs text-gray-500 mt-2">Geteilt von: ${q.ownerId.substring(0,8)}...</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                         <button class="copy-btn px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold text-sm" data-id="${q.id}">Kopieren</button>
+                    </div>
+                `;
+                sharedQuestionList.appendChild(div);
+            });
+            if (sharedQuestionList.innerHTML === '') {
+                 sharedQuestionList.innerHTML = '<p class="text-gray-500">Zurzeit wurden keine fremden Fragen freigegeben.</p>';
+            }
+        }
+
+
+        function resetForm() {
+            questionForm.reset();
+            document.getElementById('edit-id').value = '';
+            saveBtn.textContent = 'Frage speichern';
+            cancelEditBtn.classList.add('hidden');
+            gapTextContextWrapper.classList.add('hidden');
+        }
+
+        // --- EVENT LISTENERS ---
+        questionTypeSelect.addEventListener('change', () => {
+            if (questionTypeSelect.value === 'gap-text') {
+                gapTextContextWrapper.classList.remove('hidden');
+            } else {
+                gapTextContextWrapper.classList.add('hidden');
+            }
+        });
+        
+        document.getElementById('catalog-filter').addEventListener('change', renderQuestions);
+        document.getElementById('quiz-catalog-select').addEventListener('change', updateQuizStarter);
+
+        questionForm.addEventListener('submit', saveQuestion);
+
+        questionList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('share-btn')) shareQuestion(e.target.dataset.id);
+            if (e.target.classList.contains('edit-btn')) {
+                const id = e.target.dataset.id;
+                const questionToEdit = questions.find(q => q.id === id);
+                if (questionToEdit) {
+                    document.getElementById('edit-id').value = id;
+                    document.getElementById('question-text').value = questionToEdit.questionText;
+                    document.getElementById('question-type').value = questionToEdit.questionType;
+                    document.getElementById('correct-answer').value = questionToEdit.correctAnswer;
+                    document.getElementById('context-text').value = questionToEdit.contextText || '';
+                    document.getElementById('question-catalog').value = questionToEdit.catalog || '';
+                    questionTypeSelect.dispatchEvent(new Event('change'));
+                    saveBtn.textContent = 'Änderungen speichern';
+                    cancelEditBtn.classList.remove('hidden');
+                    window.scrollTo(0, 0);
+                }
+            }
+            if (e.target.classList.contains('delete-btn')) {
+                 questionToDeleteId = e.target.dataset.id;
+                 deleteModal.style.display = 'block';
+            }
+        });
+
+        sharedQuestionList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('copy-btn')) copySharedQuestion(e.target.dataset.id);
+        });
+
+        cancelEditBtn.addEventListener('click', resetForm);
+        
+        document.getElementById('cancel-delete-btn').addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+            questionToDeleteId = null;
+        });
+        document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+            if(questionToDeleteId) deleteQuestion(questionToDeleteId);
+            deleteModal.style.display = 'none';
+            questionToDeleteId = null;
+        });
+
+        function setActiveTab(activeTab) {
+            [tabManage, tabShared, tabLearn].forEach((tab, index) => {
+                const view = [viewManage, viewShared, viewLearn][index];
+                if (tab === activeTab) {
+                    tab.className = 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg border-blue-400 text-blue-300';
+                    view.classList.remove('hidden');
+                } else {
+                    tab.className = 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500';
+                    view.classList.add('hidden');
+                }
+            });
+        }
+        tabManage.addEventListener('click', () => setActiveTab(tabManage));
+        tabShared.addEventListener('click', () => setActiveTab(tabShared));
+        tabLearn.addEventListener('click', () => setActiveTab(tabLearn));
+
+
+        // --- QUIZ LOGIC ---
+        let quizQuestions = [], currentQuestionIndex = 0, score = 0;
+        const quizStarter = document.getElementById('quiz-starter');
+        const quizStarterInfo = document.getElementById('quiz-starter-info');
+        const startQuizBtn = document.getElementById('start-quiz-btn');
+        const quizContainer = document.getElementById('quiz-container');
+        const quizEndScreen = document.getElementById('quiz-end-screen');
+        const checkAnswerBtn = document.getElementById('check-answer-btn');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+        const answerArea = document.getElementById('quiz-answer-area');
+        
+        function updateQuizStarter() {
+            const selectedCatalog = document.getElementById('quiz-catalog-select').value;
+            const questionsForQuiz = selectedCatalog === 'all'
+                ? questions
+                : questions.filter(q => q.catalog === selectedCatalog);
+
+            if (questionsForQuiz.length > 0) {
+                quizStarterInfo.textContent = `Du hast ${questionsForQuiz.length} Fragen in diesem Katalog. Bereit zum Lernen?`;
+                startQuizBtn.disabled = false;
+                startQuizBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                 if (questions.length === 0) {
+                    quizStarterInfo.textContent = 'Füge zuerst einige Fragen hinzu, um das Quiz zu starten.';
+                 } else {
+                    quizStarterInfo.textContent = 'In diesem Katalog sind keine Fragen vorhanden.';
+                 }
+                startQuizBtn.disabled = true;
+                startQuizBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        startQuizBtn.addEventListener('click', () => {
+            quizStarter.classList.add('hidden');
+            quizContainer.classList.remove('hidden');
+            quizEndScreen.classList.add('hidden');
+            startQuiz();
+        });
+
+        document.getElementById('restart-quiz-btn').addEventListener('click', () => {
+            quizStarter.classList.remove('hidden');
+            quizContainer.classList.add('hidden');
+            quizEndScreen.classList.add('hidden');
+        });
+
+        function startQuiz() {
+            const selectedCatalog = document.getElementById('quiz-catalog-select').value;
+            const questionsForQuiz = selectedCatalog === 'all'
+                ? questions
+                : questions.filter(q => q.catalog === selectedCatalog);
+
+            quizQuestions = [...questionsForQuiz].sort(() => 0.5 - Math.random());
+            currentQuestionIndex = 0;
+            score = 0;
+            document.getElementById('total-q-num').textContent = quizQuestions.length;
+            displayQuestion();
+        }
+
+        function displayQuestion() {
+            if (currentQuestionIndex >= quizQuestions.length) {
+                showEndScreen();
+                return;
+            }
+            
+            const q = quizQuestions[currentQuestionIndex];
+            document.getElementById('current-q-num').textContent = currentQuestionIndex + 1;
+            document.getElementById('quiz-question-text').textContent = q.questionText;
+            answerArea.innerHTML = '';
+            
+            switch (q.questionType) {
+                case 'gap-text':
+                    let gapIndex = 0;
+                    const contextHTML = q.contextText.replace(/\[LÜCKE\]/g, () => 
+                        `<input type="text" data-gap-index="${gapIndex++}" class="inline-block w-48 bg-gray-600 border border-gray-500 rounded-md p-1 mx-2 text-center focus:ring-2 focus:ring-blue-500 focus:outline-none">`
+                    );
+                    answerArea.innerHTML = `<p class="text-gray-300 leading-relaxed">${contextHTML}</p>`;
+                    break;
+                case 'enumeration':
+                case 'ordered-enumeration':
+                    const inputsContainer = document.createElement('div');
+                    inputsContainer.id = 'dynamic-inputs-container';
+                    inputsContainer.className = 'space-y-3';
+                    answerArea.appendChild(inputsContainer);
+
+                    const addButton = document.createElement('button');
+                    addButton.id = 'add-enumeration-input-btn';
+                    addButton.type = 'button';
+                    addButton.className = 'mt-4 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 rounded-lg font-semibold text-sm flex items-center space-x-2 transition';
+                    addButton.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Weitere Antwort</span>
+                    `;
+                    answerArea.appendChild(addButton);
+
+                    addButton.addEventListener('click', () => {
+                        addDynamicInput(q.questionType);
+                    });
+                    
+                    addDynamicInput(q.questionType);
+                    break;
+                case 'free-text':
+                default:
+                    answerArea.innerHTML = `<textarea id="free-text-answer" rows="4" class="w-full bg-gray-600 border border-gray-500 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Deine Antwort..."></textarea>`;
+                    break;
+            }
+            
+            checkAnswerBtn.classList.remove('hidden');
+            nextQuestionBtn.classList.add('hidden');
+            document.getElementById('quiz-feedback').classList.add('hidden');
+        }
+        
+        function addDynamicInput(type) {
+            const container = document.getElementById('dynamic-inputs-container');
+            if (!container) return;
+
+            const inputContainer = document.createElement('div');
+            inputContainer.className = 'flex items-center space-x-2';
+            const count = container.querySelectorAll('input').length + 1;
+            if (type === 'ordered-enumeration') {
+                inputContainer.innerHTML += `<span class="text-gray-400 font-semibold w-6 text-right">${count}.</span>`;
+            }
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'dynamic-input w-full bg-gray-600 border border-gray-500 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none';
+            inputContainer.appendChild(input);
+            container.appendChild(inputContainer);
+            input.focus();
+        }
+
+        checkAnswerBtn.addEventListener('click', async () => {
+            const q = quizQuestions[currentQuestionIndex];
+            let isCorrect = false;
+            let explanation = '';
+
+            switch (q.questionType) {
+                case 'gap-text':
+                    const correctGaps = q.correctAnswer.split(';').map(a => a.trim().toLowerCase().split('/'));
+                    let allGapsCorrect = true;
+                    const gapInputs = answerArea.querySelectorAll('input[data-gap-index]');
+                    if (correctGaps.length !== gapInputs.length) {
+                        allGapsCorrect = false;
+                    } else {
+                        gapInputs.forEach((input, index) => {
+                            const userAnswer = input.value.trim().toLowerCase();
+                            if (!correctGaps[index].includes(userAnswer)) {
+                                allGapsCorrect = false;
+                            }
+                        });
+                    }
+                    isCorrect = allGapsCorrect;
+                    break;
+                
+                case 'enumeration':
+                    const userEnumAnswers = Array.from(answerArea.querySelectorAll('.dynamic-input')).map(i => i.value.trim()).filter(Boolean);
+                     if (userEnumAnswers.length === 0) {
+                        alert("Bitte gib mindestens eine Antwort ein.");
+                        return;
+                    }
+                    const correctEnumItems = q.correctAnswer.split(';').map(a => a.trim().split('/').map(s => s.trim()));
+                    
+                    document.getElementById('ai-loader').classList.remove('hidden');
+                    checkAnswerBtn.disabled = true;
+
+                    const aiResultEnum = await getAiEnumerationFeedback(correctEnumItems, userEnumAnswers);
+                    
+                    document.getElementById('ai-loader').classList.add('hidden');
+                    checkAnswerBtn.disabled = false;
+                    
+                    let foundCount = 0;
+                    if (aiResultEnum && typeof aiResultEnum.correctCount === 'number') {
+                        foundCount = aiResultEnum.correctCount;
+                    } else {
+                        explanation = "Entschuldigung, die KI-Überprüfung ist fehlgeschlagen.";
+                        break;
+                    }
+
+                    const requiredPercentage = 0.75;
+                    const totalItems = correctEnumItems.length > 0 ? correctEnumItems.length : 1;
+                    isCorrect = (foundCount / totalItems) >= requiredPercentage;
+                    explanation = `Die KI hat ${foundCount} von ${correctEnumItems.length} Antworten als sinngemäß richtig erkannt.`;
+                    break;
+
+                case 'ordered-enumeration':
+                    const userOrderedAnswers = Array.from(answerArea.querySelectorAll('.dynamic-input')).map(i => i.value.trim().toLowerCase());
+                    const correctOrderedItems = q.correctAnswer.split(';').map(a => a.trim().toLowerCase().split('/'));
+                    
+                    if (userOrderedAnswers.length !== correctOrderedItems.length) {
+                        isCorrect = false;
+                    } else {
+                        isCorrect = userOrderedAnswers.every((userAns, index) => {
+                            return correctOrderedItems[index] && correctOrderedItems[index].includes(userAns);
+                        });
+                    }
+                    break;
+                
+                case 'free-text':
+                default:
+                    const userAnswer = document.getElementById('free-text-answer').value.trim();
+                    if (!userAnswer) {
+                        alert("Bitte gib eine Antwort ein.");
+                        return;
+                    }
+                    document.getElementById('ai-loader').classList.remove('hidden');
+                    checkAnswerBtn.disabled = true;
+                    const aiResult = await getAiFeedback(q.correctAnswer, userAnswer);
+                    document.getElementById('ai-loader').classList.add('hidden');
+                    checkAnswerBtn.disabled = false;
+                    if(aiResult){
+                        isCorrect = aiResult.isCorrect;
+                        explanation = aiResult.explanation;
+                    } else {
+                        explanation = "Entschuldigung, die KI-Überprüfung ist fehlgeschlagen.";
+                    }
+                    break;
+            }
+            
+            if(isCorrect) score++;
+            showFeedback(isCorrect, q.correctAnswer, explanation);
+            checkAnswerBtn.classList.add('hidden');
+            nextQuestionBtn.classList.remove('hidden');
+        });
+
+        nextQuestionBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            displayQuestion();
+        });
+
+        function showFeedback(isCorrect, correctAnswer, explanation = '') {
+            const feedbackEl = document.getElementById('quiz-feedback');
+            feedbackEl.classList.remove('hidden', 'bg-green-900', 'text-green-200', 'bg-red-900', 'text-red-200');
+
+            if (isCorrect) {
+                feedbackEl.classList.add('bg-green-900', 'text-green-200');
+                feedbackEl.innerHTML = `<strong class="font-bold">Richtig!</strong> ${explanation}`;
+            } else {
+                feedbackEl.classList.add('bg-red-900', 'text-red-200');
+                let html = `<strong class="font-bold">Leider falsch.</strong>`;
+                if (explanation) html += `<br>${explanation}`;
+                const formattedAnswer = correctAnswer.split(';').map(item => item.trim().replace(/\//g, ' / ')).join(', ');
+                html += `<br><strong class="mt-2 block">Richtige Antwort(en):</strong> ${formattedAnswer}`;
+                feedbackEl.innerHTML = html;
+            }
+        }
+        
+        function showEndScreen() {
+             quizContainer.classList.add('hidden');
+             quizEndScreen.classList.remove('hidden');
+             document.getElementById('quiz-score').textContent = score;
+             document.getElementById('quiz-total').textContent = quizQuestions.length;
+        }
+        
+        async function getAiEnumerationFeedback(correctAnswersList, userAnswers) {
+            const systemPrompt = `Du bist ein strenger, aber fairer Prüfer. Deine Aufgabe ist es, eine Liste von Nutzerantworten mit einer Liste von Musterlösungen zu vergleichen. Die Reihenfolge ist egal. Zähle, wie viele der Nutzerantworten SINNGEMÄSS mit einer der Musterlösungen übereinstimmen. Jede Musterlösung kann nur einmal zugeordnet werden.
+            Antworte IMMER nur mit einem JSON-Objekt, das genau ein Feld hat: "correctCount" (eine Zahl, die die Anzahl der sinngemäß korrekten Übereinstimmungen angibt).`;
+
+            const correctAnswersString = correctAnswersList.map(options => options.join('/')).join('; ');
+            const userAnswersString = userAnswers.join('; ');
+
+            const userQuery = `Musterlösungen: "${correctAnswersString}"\nNutzerantworten: "${userAnswersString}"`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, };
+
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) { console.error("API Error Response:", await response.text()); return null; }
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if(text) {
+                    const sanitizedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    return JSON.parse(sanitizedText);
+                }
+                return null;
+            } catch (error) { console.error("Error calling Gemini API for enumeration:", error); return null; }
+        }
+
+
+        async function getAiFeedback(correctAnswer, userAnswer) {
+            const systemPrompt = `Du bist ein strenger, aber fairer Prüfer für eine Tunnelbau-Prüfung. Deine Aufgabe ist es, die Antwort eines Nutzers mit der Musterlösung zu vergleichen.
+            Prüfe, ob die Antwort des Nutzers SINNGEMÄSS korrekt ist. Kleine Abweichungen im Wortlaut sind okay, solange die Kerninformation stimmt.
+            Antworte IMMER nur mit einem JSON-Objekt, das genau zwei Felder hat: "isCorrect" (boolean) und "explanation" (ein kurzer String, der deine Entscheidung begründet, z.B. "Deine Antwort ist korrekt, da sie die wichtigsten Punkte enthält." oder "Falsch, weil du einen wichtigen Aspekt vergessen hast.").`;
+            
+            const userQuery = `Musterlösung: "${correctAnswer}"\nNutzerantwort: "${userAnswer}"`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, };
+
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) { console.error("API Error Response:", await response.text()); return null; }
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if(text) {
+                    const sanitizedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    return JSON.parse(sanitizedText);
+                }
+                return null;
+            } catch (error) { console.error("Error calling Gemini API:", error); return null; }
+        }
+
+        initializeAuth();
+    </script>
+</body>
+</html>
+
